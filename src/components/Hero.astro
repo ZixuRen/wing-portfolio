@@ -1,4 +1,5 @@
 ---
+import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
 ---
 
 <section class="hero">
@@ -21,7 +22,7 @@
       <em>people</em> connect<br />
       with <em>AI</em>
     </h1>
-    <p class="hero__subtitle">AI Product Designer / Interaction Designer</p>
+    <p class="hero__subtitle">AI Product Designer / Interaction Designer / Design Engineer</p>
   </div>
 
   <!-- Organic divider line (SVG) -->
@@ -31,9 +32,9 @@
     </svg>
   </div>
 
-  <!-- Yellow lower zone -->
+  <!-- Yellow lower zone — Interactive Digital Twin Island -->
   <div class="hero__bottom">
-    <button class="hero__cta" type="button">talk to my digital twin</button>
+    <DigitalTwin client:visible />
 
     <footer class="hero__footer">
       <div class="hero__footer-left">
@@ -101,7 +102,7 @@
 
   .hero__headline {
     font-family: var(--font-serif);
-    font-size: clamp(2.8rem, 6vw, 5.5rem);
+    font-size: clamp(3.5rem, 7.5vw, 7rem);
     font-weight: 400;
     line-height: 1.05;
     color: var(--color-black);
@@ -149,25 +150,8 @@
     padding: var(--space-xl);
     padding-bottom: var(--space-lg);
     gap: var(--space-xl);
-  }
-
-  .hero__cta {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: lowercase;
-    color: var(--color-black);
-    background: transparent;
-    border: 1px solid var(--color-black);
-    padding: 0.75rem 2rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-
-  .hero__cta:hover {
-    background-color: var(--color-black);
-    color: var(--color-yellow);
+    position: relative;
+    overflow: hidden;
   }
 
   .hero__footer {
@@ -181,6 +165,8 @@
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    position: relative;
+    z-index: 5;
   }
 
   .hero__footer-left {
