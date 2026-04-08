@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import './DigitalTwin.css';
 import { sendMessage } from './api.js';
+import { startListening, stopListening, speak, stopSpeaking } from './voice.js';
 
 /*
   Animation phases:
@@ -8,13 +9,22 @@ import { sendMessage } from './api.js';
   1 "expanding" — yellow wave rises to cover full viewport (~1.6s)
   2 "morphing"  — full-screen yellow shrinks to blob (~1.8s)
   3 "active"    — blob morphs through shapes, controls visible
+
+  Voice states:
+  "idle"      — waiting, not listening
+  "listening" — mic is on, capturing speech
+  "thinking"  — sending to Claude API
+  "speaking"  — playing ElevenLabs audio
 */
 
 export default function DigitalTwin() {
   const [phase, setPhase] = useState(0);
   const [muted, setMuted] = useState(false);
   const [shapeIndex, setShapeIndex] = useState(0);
+  const [voiceState, setVoiceState] = useState('idle');
+  const [statusText, setStatusText] = useState('');
   const morphCooldown = useRef(false);
+  const conversationRef = useRef([]);
 
   const shapeKeys = ['blob', 'lemon', 'bulb', 'lemonTilt', 'drop', 'lemonLow', 'lemonVert'];
   const currentShape = SHAPES[shapeKeys[shapeIndex]];
@@ -30,6 +40,70 @@ export default function DigitalTwin() {
     setPhase(1);
   }
 
+  // Start listening for voice input
+  const listen = useCallback(() => {
+    if (muted || voiceState !== 'idle') return;
+
+    setVoiceState('listening');
+    setStatusText('listening...');
+
+    startListening(
+      // onResult — got transcript
+      async (transcript) => {
+        setVoiceState('thinking');
+        setStatusText('thinking...');
+
+        // Add user message to conversation
+        conversationRef.current.push({ role: 'user', content: transcript });
+
+        try {
+          const reply = await sendMessage(conversationRef.current);
+          console.log('[DigitalTwin] Reply:', reply);
+
+          // Add assistant reply to conversation
+          conversationRef.current.push({ role: 'assistant', content: reply });
+
+          // Speak the reply via ElevenLabs
+          setVoiceState('speaking');
+          setStatusText('');
+
+          await speak(
+            reply,
+            () => {
+              // Morph shape while speaking
+              if (!morphCooldown.current) {
+                morphCooldown.current = true;
+                setShapeIndex((i) => (i + 1) % shapeKeys.length);
+                setTimeout(() => { morphCooldown.current = false; }, 1800);
+              }
+            },
+            () => {
+              // Done speaking — listen again
+              setVoiceState('idle');
+              setStatusText('');
+              setTimeout(() => listen(), 500);
+            }
+          );
+        } catch (err) {
+          console.error('[DigitalTwin] Error:', err);
+          setVoiceState('idle');
+          setStatusText('');
+          setTimeout(() => listen(), 1000);
+        }
+      },
+      // onEnd — recognition ended (no result or error)
+      () => {
+        if (voiceState === 'listening') {
+          setVoiceState('idle');
+          setStatusText('');
+          // Auto-restart listening
+          setTimeout(() => listen(), 300);
+        }
+      }
+    );
+  }, [muted, voiceState, shapeKeys.length]);
+
+  // Phase transitions
   useEffect(() => {
     if (phase === 1) {
       const t = setTimeout(() => setPhase(2), 1600);
@@ -39,17 +113,64 @@ export default function DigitalTwin() {
       const t = setTimeout(() => setPhase(3), 1800);
       return () => clearTimeout(t);
     }
-    if (phase === 3) {
-      sendMessage([{ role: 'user', content: 'Hi, introduce yourself briefly.' }])
-        .then((reply) => console.log('[DigitalTwin] API connected:', reply))
-        .catch((err) => console.error('[DigitalTwin] API error:', err));
+  }, [phase]);
+
+  // Start listening when phase 3 activates
+  useEffect(() => {
+    if (phase === 3 && !muted) {
+      // Greet first, then start listening
+      setVoiceState('thinking');
+      setStatusText('connecting...');
+
+      sendMessage([{ role: 'user', content: 'Hi! Who are you?' }])
+        .then(async (reply) => {
+          conversationRef.current = [
+            { role: 'user', content: 'Hi! Who are you?' },
+            { role: 'assistant', content: reply },
+          ];
+
+          setVoiceState('speaking');
+          setStatusText('');
+
+          await speak(
+            reply,
+            null,
+            () => {
+              setVoiceState('idle');
+              listen();
+            }
+          );
+        })
+        .catch((err) => {
+          console.error('[DigitalTwin] Greeting error:', err);
+          setVoiceState('idle');
+          setStatusText('');
+          listen();
+        });
     }
   }, [phase]);
 
+  // Handle mute toggle
+  useEffect(() => {
+    if (muted) {
+      stopListening();
+      stopSpeaking();
+      setVoiceState('idle');
+      setStatusText('');
+    } else if (phase === 3) {
+      setTimeout(() => listen(), 300);
+    }
+  }, [muted]);
+
   const handleEndCall = useCallback(() => {
+    stopListening();
+    stopSpeaking();
     setPhase(0);
     setMuted(false);
     setShapeIndex(0);
+    setVoiceState('idle');
+    setStatusText('');
+    conversationRef.current = [];
   }, []);
 
   return (
@@ -145,6 +266,16 @@ export default function DigitalTwin() {
             </div>
           )}
 
+          {/* Status text */}
+          {phase === 3 && statusText && (
+            <div class="dt-status">{statusText}</div>
+          )}
+
+          {/* Voice state indicator */}
+          {phase === 3 && voiceState === 'listening' && (
+            <div class="dt-listening-indicator" />
+          )}
+
           {phase === 3 && (
             <div class="dt-controls">
               <button
@@ -170,36 +301,29 @@ export default function DigitalTwin() {
 }
 
 /*
-  All 4 shapes use exactly 8 cubic bezier segments (M + 8C + Z)
-  so SMIL can interpolate smoothly between them.
+  All shapes use exactly 8 cubic bezier segments (M + 8C + Z)
+  so CSS d property can interpolate smoothly between them.
   ViewBox: 0 0 400 400, shapes centered ~(200, 200)
 */
 const SHAPES = {
-  // Organic blob — soft irregular circle
   blob:
     'M 200,38 C 252,32 312,58 348,102 C 384,146 395,205 382,255 C 369,305 335,345 288,368 C 241,391 188,390 142,368 C 96,346 58,305 38,252 C 18,199 20,148 42,108 C 64,68 102,45 148,38 C 168,34 185,35 200,38 Z',
 
-  // Lemon — horizontal elongated, pointed both ends (right more pointed), organic asymmetry
   lemon:
     'M 200,72 C 258,42 332,38 382,82 C 432,126 445,195 425,248 C 405,301 358,335 302,352 C 252,366 205,362 158,342 C 111,322 68,288 38,240 C 8,192 -2,142 18,102 C 38,62 82,42 132,48 C 162,52 182,60 200,72 Z',
 
-  // Lightbulb — wide round top, narrowing to a neck at bottom
   bulb:
     'M 200,28 C 260,22 328,52 368,105 C 408,158 415,218 388,265 C 361,312 318,335 282,358 C 256,374 238,392 200,395 C 162,392 144,374 118,358 C 82,335 39,312 12,265 C -15,218 -8,158 32,105 C 72,52 140,22 200,28 Z',
 
-  // Raindrop — pointed top, wide round bottom
   drop:
     'M 200,18 C 218,18 252,62 282,122 C 312,182 348,238 362,285 C 376,332 368,372 335,392 C 302,412 252,418 200,418 C 148,418 98,412 65,392 C 32,372 24,332 38,285 C 52,238 88,182 118,122 C 148,62 182,18 200,18 Z',
 
-  // Lemon tilted ~45° upper-right
   lemonTilt:
     'M 200,52 C 248,28 312,22 362,62 C 412,102 435,168 418,232 C 401,296 352,342 295,365 C 238,388 182,382 132,352 C 82,322 42,272 22,215 C 2,158 12,98 52,62 C 92,26 142,28 172,38 C 185,42 192,46 200,52 Z',
 
-  // Lemon tilted ~-30° lower-right
   lemonLow:
     'M 200,58 C 255,38 318,48 365,95 C 412,142 428,208 408,268 C 388,328 338,365 278,378 C 218,391 162,378 118,345 C 74,312 38,262 22,205 C 6,148 18,92 55,58 C 92,24 138,22 168,32 C 182,38 192,48 200,58 Z',
 
-  // Lemon vertical — tall and narrow
   lemonVert:
     'M 200,15 C 232,18 268,42 292,88 C 316,134 328,195 322,252 C 316,309 295,358 262,385 C 229,412 202,418 178,402 C 154,386 132,348 115,298 C 98,248 88,188 92,135 C 96,82 115,42 148,22 C 168,12 182,12 200,15 Z',
 };
