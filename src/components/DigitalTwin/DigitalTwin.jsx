@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import './DigitalTwin.css';
+import { sendMessage } from './api.js';
 
 /*
   Animation phases:
@@ -37,6 +38,11 @@ export default function DigitalTwin() {
     if (phase === 2) {
       const t = setTimeout(() => setPhase(3), 1800);
       return () => clearTimeout(t);
+    }
+    if (phase === 3) {
+      sendMessage([{ role: 'user', content: 'Hi, introduce yourself briefly.' }])
+        .then((reply) => console.log('[DigitalTwin] API connected:', reply))
+        .catch((err) => console.error('[DigitalTwin] API error:', err));
     }
   }, [phase]);
 
