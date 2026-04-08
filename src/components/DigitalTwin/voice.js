@@ -1,52 +1,107 @@
 /* ==========================================================================
-   Voice I/O — Web Speech API (input) + ElevenLabs (output)
+   Voice I/O — Whisper API (input) + ElevenLabs (output)
    ========================================================================== */
 
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/text-to-speech';
+const WHISPER_API = 'https://api.openai.com/v1/audio/transcriptions';
 
-// ---- Speech Recognition (input) ----
+// ---- Speech Recognition via Whisper (input) ----
 
-let recognition = null;
+let mediaRecorder = null;
+let audioStream = null;
 
-export function startListening(onResult, onEnd) {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    console.warn('[Voice] SpeechRecognition not supported in this browser');
-    return null;
+export async function startListening(onResult, onEnd) {
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    console.error('[Voice] Mic access denied:', e);
+    onEnd?.('unavailable');
+    return;
   }
 
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.interimResults = false;
-  recognition.continuous = false;
+  const chunks = [];
+  mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
 
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    console.log('[Voice] Heard:', transcript);
-    onResult(transcript);
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
   };
 
-  recognition.onend = () => {
-    onEnd?.();
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+
+    // Skip if too short (< 0.5s of audio, likely silence)
+    if (blob.size < 5000) {
+      console.log('[Voice] Audio too short, skipping');
+      onEnd?.();
+      return;
+    }
+
+    try {
+      const transcript = await transcribeWithWhisper(blob);
+      if (transcript && transcript.trim()) {
+        console.log('[Voice] Heard:', transcript);
+        onResult(transcript.trim());
+      } else {
+        console.log('[Voice] No speech detected');
+        onEnd?.();
+      }
+    } catch (err) {
+      console.error('[Voice] Whisper error:', err);
+      onEnd?.();
+    }
   };
 
-  recognition.onerror = (event) => {
-    console.error('[Voice] Recognition error:', event.error);
-    onEnd?.();
-  };
+  mediaRecorder.start();
+  console.log('[Voice] Recording...');
 
-  recognition.start();
-  console.log('[Voice] Listening...');
-  return recognition;
+  // Auto-stop after 10 seconds max
+  setTimeout(() => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+  }, 10000);
 }
 
 export function stopListening() {
-  if (recognition) {
-    recognition.stop();
-    recognition = null;
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
   }
+  mediaRecorder = null;
+  if (audioStream) {
+    audioStream.getTracks().forEach((t) => t.stop());
+    audioStream = null;
+  }
+}
+
+// Stop recording and send to Whisper (called by user or by silence detection)
+export function finishRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+}
+
+async function transcribeWithWhisper(audioBlob) {
+  const apiKey = import.meta.env.PUBLIC_OPENAI_API_KEY;
+
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+  formData.append('model', 'whisper-1');
+
+  const res = await fetch(WHISPER_API, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Whisper error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.text;
 }
 
 // ---- Text-to-Speech via ElevenLabs (output) ----
@@ -84,18 +139,31 @@ export async function speak(text, onStart, onDone) {
   stopSpeaking();
 
   currentAudio = new Audio(url);
-  currentAudio.onplay = () => onStart?.();
+  currentAudio.onplay = () => {
+    console.log('[Voice] Audio playing');
+    onStart?.();
+  };
   currentAudio.onended = () => {
+    console.log('[Voice] Audio finished');
     URL.revokeObjectURL(url);
     currentAudio = null;
     onDone?.();
   };
-  currentAudio.onerror = () => {
+  currentAudio.onerror = (e) => {
+    console.error('[Voice] Audio playback error:', e);
     URL.revokeObjectURL(url);
     currentAudio = null;
     onDone?.();
   };
-  currentAudio.play();
+
+  try {
+    await currentAudio.play();
+  } catch (e) {
+    console.error('[Voice] Audio play blocked:', e);
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+    onDone?.();
+  }
 }
 
 export function stopSpeaking() {

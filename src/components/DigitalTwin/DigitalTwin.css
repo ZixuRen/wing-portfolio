@@ -269,6 +269,81 @@
   }
 }
 
+/* ===========================
+   DISPLAY TEXT (when voice fails)
+   =========================== */
+.dt-display-text {
+  position: absolute;
+  top: calc(44% + 26vmin);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: 360px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-black);
+  opacity: 0.7;
+  animation: controls-in 0.3s ease-out;
+}
+
+/* ===========================
+   TEXT INPUT FALLBACK
+   =========================== */
+.dt-input {
+  position: absolute;
+  bottom: calc(12vh + 56px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: var(--space-sm);
+  width: 320px;
+  animation: controls-in 0.5s ease-out forwards;
+}
+
+.dt-input__field {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-black);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-black);
+  outline: none;
+}
+
+.dt-input__field::placeholder {
+  color: var(--color-black);
+  opacity: 0.3;
+}
+
+.dt-input__field:focus {
+  border-color: var(--color-black);
+  box-shadow: 0 0 0 1px var(--color-black);
+}
+
+.dt-input__field:disabled {
+  opacity: 0.3;
+}
+
+.dt-input__send {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  background: var(--color-black);
+  color: var(--color-cream);
+  border: 1px solid var(--color-black);
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.dt-input__send:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* --- Responsive --- */
 @media (max-width: 768px) {
   .dt-controls {

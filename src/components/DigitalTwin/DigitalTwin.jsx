@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import './DigitalTwin.css';
 import { sendMessage } from './api.js';
-import { startListening, stopListening, speak, stopSpeaking } from './voice.js';
+import { startListening, stopListening, finishRecording, speak, stopSpeaking } from './voice.js';
 
 /*
   Animation phases:
@@ -9,12 +9,6 @@ import { startListening, stopListening, speak, stopSpeaking } from './voice.js';
   1 "expanding" — yellow wave rises to cover full viewport (~1.6s)
   2 "morphing"  — full-screen yellow shrinks to blob (~1.8s)
   3 "active"    — blob morphs through shapes, controls visible
-
-  Voice states:
-  "idle"      — waiting, not listening
-  "listening" — mic is on, capturing speech
-  "thinking"  — sending to Claude API
-  "speaking"  — playing ElevenLabs audio
 */
 
 export default function DigitalTwin() {
@@ -23,85 +17,111 @@ export default function DigitalTwin() {
   const [shapeIndex, setShapeIndex] = useState(0);
   const [voiceState, setVoiceState] = useState('idle');
   const [statusText, setStatusText] = useState('');
+  const [displayText, setDisplayText] = useState('');
+  const [useMic, setUseMic] = useState(true);
   const morphCooldown = useRef(false);
   const conversationRef = useRef([]);
+  const speechFailCount = useRef(0);
 
-  const shapeKeys = ['blob', 'lemon', 'bulb', 'lemonTilt', 'drop', 'lemonLow', 'lemonVert'];
+  const shapeKeys = ['blob', 'lemon', 'cat', 'bulb', 'lemonTilt', 'drop', 'lemonLow', 'lemonVert'];
   const currentShape = SHAPES[shapeKeys[shapeIndex]];
 
-  function handleMouseEnter() {
-    if (phase !== 3 || morphCooldown.current) return;
+  function morphNext() {
+    if (morphCooldown.current) return;
     morphCooldown.current = true;
     setShapeIndex((i) => (i + 1) % shapeKeys.length);
     setTimeout(() => { morphCooldown.current = false; }, 1800);
+  }
+
+  function handleMouseEnter() {
+    if (phase !== 3) return;
+    morphNext();
+  }
+
+  function handleBlobClick() {
+    if (phase !== 3 || muted) return;
+    if (voiceState === 'idle') {
+      listen();
+    } else if (voiceState === 'listening') {
+      handleStopRecording();
+    }
   }
 
   function handleActivate() {
     setPhase(1);
   }
 
-  // Start listening for voice input
+  // Send text to Claude and speak the reply
+  async function handleSendText(text) {
+    if (!text.trim()) return;
+
+    setVoiceState('thinking');
+    setStatusText('thinking...');
+
+    conversationRef.current.push({ role: 'user', content: text.trim() });
+
+    try {
+      const reply = await sendMessage(conversationRef.current);
+      console.log('[DigitalTwin] Reply:', reply);
+      conversationRef.current.push({ role: 'assistant', content: reply });
+
+      setVoiceState('speaking');
+      setStatusText('');
+      setDisplayText('');
+
+      try {
+        await speak(
+          reply,
+          () => morphNext(),
+          () => {
+            setVoiceState('idle');
+            setStatusText('');
+            setDisplayText('');
+          }
+        );
+      } catch (speakErr) {
+        // ElevenLabs failed (quota etc) — show text instead
+        console.warn('[DigitalTwin] Speech failed, showing text:', speakErr);
+        setDisplayText(reply);
+        setVoiceState('idle');
+        setStatusText('');
+        setTimeout(() => setDisplayText(''), 8000);
+      }
+    } catch (err) {
+      console.error('[DigitalTwin] Error:', err);
+      setVoiceState('idle');
+      setStatusText('');
+    }
+  }
+
+  // Start recording voice
   const listen = useCallback(() => {
-    if (muted || voiceState !== 'idle') return;
+    if (muted || voiceState !== 'idle' || !useMic) return;
 
     setVoiceState('listening');
     setStatusText('listening...');
 
     startListening(
-      // onResult — got transcript
-      async (transcript) => {
-        setVoiceState('thinking');
-        setStatusText('thinking...');
-
-        // Add user message to conversation
-        conversationRef.current.push({ role: 'user', content: transcript });
-
-        try {
-          const reply = await sendMessage(conversationRef.current);
-          console.log('[DigitalTwin] Reply:', reply);
-
-          // Add assistant reply to conversation
-          conversationRef.current.push({ role: 'assistant', content: reply });
-
-          // Speak the reply via ElevenLabs
-          setVoiceState('speaking');
-          setStatusText('');
-
-          await speak(
-            reply,
-            () => {
-              // Morph shape while speaking
-              if (!morphCooldown.current) {
-                morphCooldown.current = true;
-                setShapeIndex((i) => (i + 1) % shapeKeys.length);
-                setTimeout(() => { morphCooldown.current = false; }, 1800);
-              }
-            },
-            () => {
-              // Done speaking — listen again
-              setVoiceState('idle');
-              setStatusText('');
-              setTimeout(() => listen(), 500);
-            }
-          );
-        } catch (err) {
-          console.error('[DigitalTwin] Error:', err);
-          setVoiceState('idle');
-          setStatusText('');
-          setTimeout(() => listen(), 1000);
-        }
+      (transcript) => {
+        handleSendText(transcript);
       },
-      // onEnd — recognition ended (no result or error)
-      () => {
-        if (voiceState === 'listening') {
-          setVoiceState('idle');
-          setStatusText('');
-          // Auto-restart listening
-          setTimeout(() => listen(), 300);
+      (reason) => {
+        setVoiceState('idle');
+        setStatusText('');
+        if (reason === 'unavailable') {
+          setUseMic(false);
+          console.log('[DigitalTwin] Mic unavailable — use text input');
         }
       }
     );
-  }, [muted, voiceState, shapeKeys.length]);
+  }, [muted, voiceState, useMic]);
+
+  // Stop recording and send to Whisper
+  function handleStopRecording() {
+    if (voiceState === 'listening') {
+      finishRecording();
+    }
+  }
 
   // Phase transitions
   useEffect(() => {
@@ -115,10 +135,9 @@ export default function DigitalTwin() {
     }
   }, [phase]);
 
-  // Start listening when phase 3 activates
+  // Greet on activation
   useEffect(() => {
-    if (phase === 3 && !muted) {
-      // Greet first, then start listening
+    if (phase === 3) {
       setVoiceState('thinking');
       setStatusText('connecting...');
 
@@ -137,7 +156,6 @@ export default function DigitalTwin() {
             null,
             () => {
               setVoiceState('idle');
-              listen();
             }
           );
         })
@@ -145,7 +163,6 @@ export default function DigitalTwin() {
           console.error('[DigitalTwin] Greeting error:', err);
           setVoiceState('idle');
           setStatusText('');
-          listen();
         });
     }
   }, [phase]);
@@ -157,7 +174,7 @@ export default function DigitalTwin() {
       stopSpeaking();
       setVoiceState('idle');
       setStatusText('');
-    } else if (phase === 3) {
+    } else if (phase === 3 && useMic) {
       setTimeout(() => listen(), 300);
     }
   }, [muted]);
@@ -170,7 +187,10 @@ export default function DigitalTwin() {
     setShapeIndex(0);
     setVoiceState('idle');
     setStatusText('');
+    setDisplayText('');
+    setUseMic(true);
     conversationRef.current = [];
+    speechFailCount.current = 0;
   }, []);
 
   return (
@@ -192,7 +212,7 @@ export default function DigitalTwin() {
             .filter(Boolean)
             .join(' ')}
         >
-          {/* Rising container — wave + yellow body move as one */}
+          {/* Rising container */}
           <div class="dt-overlay__rising">
             <div class="dt-overlay__wave-top">
               <svg
@@ -241,16 +261,18 @@ export default function DigitalTwin() {
             <div class="dt-overlay__body" />
           </div>
 
-          {/* Clip-path shape — shrinks in phase 2, stays as base circle in phase 3 */}
+          {/* Clip-path shape */}
           {(phase === 2 || phase === 3) && (
             <div class={`dt-overlay__shape ${phase === 3 ? 'dt-overlay__shape--hold' : ''}`} />
           )}
 
-          {/* SVG blob — fades in during phase 2, mouse-triggered morph in phase 3 */}
+          {/* SVG blob */}
           {(phase === 2 || phase === 3) && (
             <div
               class={`dt-overlay__blob-wrap ${phase === 2 ? 'dt-overlay__blob-wrap--fadein' : ''}`}
               onMouseEnter={handleMouseEnter}
+              onClick={handleBlobClick}
+              style={{ cursor: phase === 3 && voiceState === 'idle' ? 'pointer' : 'default' }}
             >
               <svg
                 class="dt-overlay__blob-svg"
@@ -267,14 +289,22 @@ export default function DigitalTwin() {
           )}
 
           {/* Status text */}
-          {phase === 3 && statusText && (
-            <div class="dt-status">{statusText}</div>
+          {phase === 3 && (
+            <div class="dt-status">
+              {statusText || (voiceState === 'idle' && useMic ? 'click blob to talk' : '')}
+            </div>
           )}
 
-          {/* Voice state indicator */}
+          {/* Fallback text display when ElevenLabs fails */}
+          {phase === 3 && displayText && (
+            <div class="dt-display-text">{displayText}</div>
+          )}
+
+          {/* Listening indicator */}
           {phase === 3 && voiceState === 'listening' && (
             <div class="dt-listening-indicator" />
           )}
+
 
           {phase === 3 && (
             <div class="dt-controls">
@@ -300,30 +330,23 @@ export default function DigitalTwin() {
   );
 }
 
-/*
-  All shapes use exactly 8 cubic bezier segments (M + 8C + Z)
-  so CSS d property can interpolate smoothly between them.
-  ViewBox: 0 0 400 400, shapes centered ~(200, 200)
-*/
 const SHAPES = {
   blob:
     'M 200,38 C 252,32 312,58 348,102 C 384,146 395,205 382,255 C 369,305 335,345 288,368 C 241,391 188,390 142,368 C 96,346 58,305 38,252 C 18,199 20,148 42,108 C 64,68 102,45 148,38 C 168,34 185,35 200,38 Z',
-
   lemon:
     'M 200,72 C 258,42 332,38 382,82 C 432,126 445,195 425,248 C 405,301 358,335 302,352 C 252,366 205,362 158,342 C 111,322 68,288 38,240 C 8,192 -2,142 18,102 C 38,62 82,42 132,48 C 162,52 182,60 200,72 Z',
+  // Cat head — round face with two pointy ears at top
+  cat:
+    'M 200,75 C 230,72 280,18 310,22 C 340,26 355,85 370,145 C 385,205 380,285 340,338 C 300,391 250,400 200,400 C 150,400 100,391 60,338 C 20,285 15,205 30,145 C 45,85 60,26 90,22 C 120,18 170,72 200,75 Z',
 
   bulb:
     'M 200,28 C 260,22 328,52 368,105 C 408,158 415,218 388,265 C 361,312 318,335 282,358 C 256,374 238,392 200,395 C 162,392 144,374 118,358 C 82,335 39,312 12,265 C -15,218 -8,158 32,105 C 72,52 140,22 200,28 Z',
-
   drop:
     'M 200,18 C 218,18 252,62 282,122 C 312,182 348,238 362,285 C 376,332 368,372 335,392 C 302,412 252,418 200,418 C 148,418 98,412 65,392 C 32,372 24,332 38,285 C 52,238 88,182 118,122 C 148,62 182,18 200,18 Z',
-
   lemonTilt:
     'M 200,52 C 248,28 312,22 362,62 C 412,102 435,168 418,232 C 401,296 352,342 295,365 C 238,388 182,382 132,352 C 82,322 42,272 22,215 C 2,158 12,98 52,62 C 92,26 142,28 172,38 C 185,42 192,46 200,52 Z',
-
   lemonLow:
     'M 200,58 C 255,38 318,48 365,95 C 412,142 428,208 408,268 C 388,328 338,365 278,378 C 218,391 162,378 118,345 C 74,312 38,262 22,205 C 6,148 18,92 55,58 C 92,24 138,22 168,32 C 182,38 192,48 200,58 Z',
-
   lemonVert:
     'M 200,15 C 232,18 268,42 292,88 C 316,134 328,195 322,252 C 316,309 295,358 262,385 C 229,412 202,418 178,402 C 154,386 132,348 115,298 C 98,248 88,188 92,135 C 96,82 115,42 148,22 C 168,12 182,12 200,15 Z',
 };
