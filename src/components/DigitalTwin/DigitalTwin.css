@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Digital Twin — Overlay + Blob + Controls
+   Digital Twin — Wave Rise + Blob + Controls
    ========================================================================== */
 
-/* --- CTA Button (idle state, inside yellow zone) --- */
+/* --- CTA Button (idle state) --- */
 .dt-cta {
   position: relative;
   z-index: 2;
@@ -29,35 +29,98 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+  pointer-events: none;
 }
 
-/* Phase 1: expanding — yellow rises from bottom to fill screen */
-.dt-overlay--expanding {
+.dt-overlay--expanding,
+.dt-overlay--morphing,
+.dt-overlay--active {
+  pointer-events: auto;
+}
+
+/* ===========================
+   WAVE TOP EDGE
+   The wavy SVG + hand-drawn line that forms the organic top border.
+   This whole piece slides up with the yellow body.
+   =========================== */
+.dt-overlay__wave-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 3;
+}
+
+.dt-overlay__wave-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ===========================
+   YELLOW BODY
+   Solid yellow rectangle that fills everything below the wave.
+   =========================== */
+.dt-overlay__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: var(--color-yellow);
-  animation: overlay-rise 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 2;
 }
 
-@keyframes overlay-rise {
-  from {
-    clip-path: inset(50% 0 0 0);
+/* --- Phase 1: EXPANDING — wave + body rise from bottom --- */
+.dt-overlay--expanding .dt-overlay__wave-top {
+  bottom: 0;
+  animation: wave-rise 1.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+.dt-overlay--expanding .dt-overlay__body {
+  height: 0;
+  animation: body-rise 1.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+@keyframes wave-rise {
+  0% {
+    bottom: -120px;
   }
-  to {
-    clip-path: inset(0 0 0 0);
+  100% {
+    bottom: calc(100% - 60px);
   }
 }
 
-/* Phase 2: morphing — full yellow, blob fading in over it */
-.dt-overlay--morphing {
-  background-color: var(--color-yellow);
-  animation: overlay-to-cream 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+@keyframes body-rise {
+  0% {
+    height: 0;
+  }
+  100% {
+    height: 100%;
+  }
 }
 
-@keyframes overlay-to-cream {
+/* --- Phase 2: MORPHING — yellow fades to cream, blob appears --- */
+.dt-overlay--morphing .dt-overlay__wave-top {
+  bottom: calc(100% - 60px);
+  animation: wave-fade 0.8s ease-out forwards;
+}
+
+.dt-overlay--morphing .dt-overlay__body {
+  height: 100%;
+  animation: body-to-cream 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes wave-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes body-to-cream {
   0% {
     background-color: var(--color-yellow);
   }
@@ -66,106 +129,77 @@
   }
 }
 
-/* Phase 3: active — cream background, blob floats */
-.dt-overlay--active {
-  background-color: var(--color-cream);
-}
-
-/* --- Organic divider line (travels with yellow) --- */
-.dt-overlay__line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 60px;
-  z-index: 2;
-  opacity: 0.4;
-}
-
-.dt-overlay--expanding .dt-overlay__line {
-  animation: line-rise 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes line-rise {
-  from {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 0;
-  }
-}
-
-.dt-overlay--morphing .dt-overlay__line,
-.dt-overlay--active .dt-overlay__line {
-  opacity: 0;
-}
-
-/* --- Yellow fill / blob --- */
-.dt-overlay__yellow {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dt-overlay--expanding .dt-overlay__yellow {
-  /* Full yellow background, no blob yet */
+/* --- Phase 3: ACTIVE — cream bg, blob floats --- */
+.dt-overlay--active .dt-overlay__wave-top {
   display: none;
 }
 
-.dt-overlay--morphing .dt-overlay__yellow,
-.dt-overlay--active .dt-overlay__yellow {
-  width: 55vmin;
-  height: 55vmin;
+.dt-overlay--active .dt-overlay__body {
+  height: 100%;
+  background-color: var(--color-cream);
 }
 
-/* --- Blob SVG --- */
+/* ===========================
+   BLOB
+   =========================== */
+.dt-overlay__blob-wrap {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 55vmin;
+  height: 55vmin;
+  transform: translate(-50%, -55%);
+}
+
 .dt-overlay__blob {
   width: 100%;
   height: 100%;
-  opacity: 0;
 }
 
-.dt-overlay--morphing .dt-overlay__blob {
+/* Morphing: blob scales down from huge to normal */
+.dt-overlay--morphing .dt-overlay__blob-wrap {
   animation: blob-appear 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes blob-appear {
   0% {
     opacity: 0;
-    transform: scale(2.5);
+    transform: translate(-50%, -55%) scale(2.5);
+  }
+  30% {
+    opacity: 1;
   }
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -55%) scale(1);
   }
 }
 
-.dt-overlay--active .dt-overlay__blob {
-  opacity: 1;
+/* Active: blob floats gently */
+.dt-overlay--active .dt-overlay__blob-wrap {
   animation: blob-float 6s ease-in-out infinite;
 }
 
 @keyframes blob-float {
   0%, 100% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(-50%, -55%) scale(1);
   }
   33% {
-    transform: translate(8px, -12px) scale(1.02);
+    transform: translate(calc(-50% + 8px), calc(-55% - 12px)) scale(1.02);
   }
   66% {
-    transform: translate(-6px, 8px) scale(0.98);
+    transform: translate(calc(-50% - 6px), calc(-55% + 8px)) scale(0.98);
   }
 }
 
-/* --- Controls --- */
+/* ===========================
+   CONTROLS
+   =========================== */
 .dt-controls {
   position: absolute;
   bottom: 12vh;
-  z-index: 3;
+  z-index: 5;
   display: flex;
   gap: var(--space-lg);
   animation: controls-in 0.5s ease-out forwards;
@@ -206,10 +240,6 @@
   color: var(--color-cream);
 }
 
-.dt-controls__btn--end {
-  border-color: var(--color-black);
-}
-
 .dt-controls__btn--end:hover {
   background-color: var(--color-black);
   color: var(--color-cream);
@@ -217,8 +247,7 @@
 
 /* --- Responsive --- */
 @media (max-width: 768px) {
-  .dt-overlay--morphing .dt-overlay__yellow,
-  .dt-overlay--active .dt-overlay__yellow {
+  .dt-overlay__blob-wrap {
     width: 70vmin;
     height: 70vmin;
   }
