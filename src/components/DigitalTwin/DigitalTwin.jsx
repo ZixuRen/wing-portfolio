@@ -1,145 +1,142 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import './DigitalTwin.css';
 
-export default function DigitalTwin() {
-  const [active, setActive] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const messagesEndRef = useRef(null);
+/*
+  Animation phases:
+  0 "idle"      — static yellow bottom half, button visible
+  1 "expanding" — yellow rises to cover full viewport (~1s)
+  2 "morphing"  — full-screen yellow shrinks into blob (~1s)
+  3 "active"    — blob breathes/floats, controls visible
+*/
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+export default function DigitalTwin() {
+  const [phase, setPhase] = useState(0);
+  const [muted, setMuted] = useState(false);
 
   function handleActivate() {
-    setActive(true);
-    setMessages([
-      {
-        role: 'assistant',
-        content:
-          "Hey! I'm Wing's digital twin. Ask me anything about his work, design philosophy, or experience.",
-      },
-    ]);
+    setPhase(1);
   }
 
-  function handleSend(e) {
-    e.preventDefault();
-    if (!input.trim()) return;
+  useEffect(() => {
+    if (phase === 1) {
+      const t = setTimeout(() => setPhase(2), 1000);
+      return () => clearTimeout(t);
+    }
+    if (phase === 2) {
+      const t = setTimeout(() => setPhase(3), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
 
-    setMessages((prev) => [...prev, { role: 'user', content: input.trim() }]);
-    setInput('');
-
-    // Dummy response — will be replaced with Claude API
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content:
-            "That's a great question! I'll be able to answer properly once I'm connected to the AI backend. For now, I'm just a placeholder.",
-        },
-      ]);
-    }, 800);
-  }
-
-  function handleClose() {
-    setActive(false);
-    setMessages([]);
-    setInput('');
-  }
+  const handleEndCall = useCallback(() => {
+    setPhase(0);
+    setMuted(false);
+  }, []);
 
   return (
-    <div class={`dt ${active ? 'dt--active' : ''}`}>
-      {/* Yellow background — full rect or blob */}
-      <div class="dt__blob-wrap">
-        <svg
-          class="dt__blob-svg"
-          viewBox="0 0 800 600"
-          preserveAspectRatio="xMidYMid slice"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <clipPath id="blob-clip">
-              <path class="dt__blob-path" d={active ? BLOB_PATH : RECT_PATH}>
-                {active && (
-                  <animate
-                    attributeName="d"
-                    values={`${BLOB_PATH};${BLOB_PATH_2};${BLOB_PATH_3};${BLOB_PATH}`}
-                    dur="8s"
-                    repeatCount="indefinite"
-                    calcMode="spline"
-                    keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
-                  />
-                )}
-              </path>
-            </clipPath>
-          </defs>
-          <rect
-            width="800"
-            height="600"
-            fill="#ECE543"
-            clip-path="url(#blob-clip)"
-          />
-        </svg>
-      </div>
-
-      {/* CTA button — only when inactive */}
-      {!active && (
-        <button class="dt__cta" type="button" onClick={handleActivate}>
+    <>
+      {/* CTA button — only in idle state */}
+      {phase === 0 && (
+        <button class="dt-cta" type="button" onClick={handleActivate}>
           talk to my digital twin
         </button>
       )}
 
-      {/* Chat interface — only when active */}
-      {active && (
-        <div class="dt__chat">
-          <button class="dt__close" type="button" onClick={handleClose} aria-label="Close chat">
-            &times;
-          </button>
+      {/* Full-screen overlay for animation phases 1-3 */}
+      {phase > 0 && (
+        <div
+          class={[
+            'dt-overlay',
+            phase === 1 && 'dt-overlay--expanding',
+            phase === 2 && 'dt-overlay--morphing',
+            phase === 3 && 'dt-overlay--active',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {/* The organic divider line that travels with the yellow */}
+          <svg
+            class="dt-overlay__line"
+            viewBox="0 0 1440 60"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M0,35 C180,55 360,10 540,30 C720,50 900,5 1080,25 C1200,38 1350,15 1440,28"
+              fill="none"
+              stroke="var(--color-black)"
+              stroke-width="1"
+            >
+              <animate
+                attributeName="d"
+                values="
+                  M0,35 C180,55 360,10 540,30 C720,50 900,5 1080,25 C1200,38 1350,15 1440,28;
+                  M0,28 C180,10 360,50 540,25 C720,5 900,45 1080,30 C1200,15 1350,45 1440,35;
+                  M0,35 C180,55 360,10 540,30 C720,50 900,5 1080,25 C1200,38 1350,15 1440,28
+                "
+                dur="4s"
+                repeatCount="indefinite"
+                calcMode="spline"
+                keySplines="0.4 0 0.2 1;0.4 0 0.2 1"
+              />
+            </path>
+          </svg>
 
-          <div class="dt__messages">
-            {messages.map((msg, i) => (
-              <div key={i} class={`dt__msg dt__msg--${msg.role}`}>
-                {msg.role === 'assistant' && <span class="dt__msg-label">twin</span>}
-                <p>{msg.content}</p>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+          {/* Yellow fill — becomes blob in phase 2-3 */}
+          <div class="dt-overlay__yellow">
+            {(phase === 2 || phase === 3) && (
+              <svg
+                class="dt-overlay__blob"
+                viewBox="0 0 600 600"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path fill="#ECE543" d={BLOB_PATH}>
+                  {phase === 3 && (
+                    <animate
+                      attributeName="d"
+                      values={`${BLOB_PATH};${BLOB_PATH_2};${BLOB_PATH_3};${BLOB_PATH}`}
+                      dur="8s"
+                      repeatCount="indefinite"
+                      calcMode="spline"
+                      keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
+                    />
+                  )}
+                </path>
+              </svg>
+            )}
           </div>
 
-          <form class="dt__input-wrap" onSubmit={handleSend}>
-            <input
-              class="dt__input"
-              type="text"
-              value={input}
-              onInput={(e) => setInput(e.currentTarget.value)}
-              placeholder="Ask me anything..."
-              autoFocus
-            />
-            <button class="dt__send" type="submit" aria-label="Send message">
-              &rarr;
-            </button>
-          </form>
+          {/* Controls — only in active phase */}
+          {phase === 3 && (
+            <div class="dt-controls">
+              <button
+                class={`dt-controls__btn ${muted ? 'dt-controls__btn--active' : ''}`}
+                type="button"
+                onClick={() => setMuted((m) => !m)}
+              >
+                {muted ? 'unmute' : 'mute'}
+              </button>
+              <button
+                class="dt-controls__btn dt-controls__btn--end"
+                type="button"
+                onClick={handleEndCall}
+              >
+                end call
+              </button>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-/* --- SVG Paths --- */
-
-// Full rectangle (initial state)
-const RECT_PATH =
-  'M 0 0 L 800 0 L 800 600 L 0 600 Z';
-
-// Organic blob shapes for breathing animation
+/* --- Blob paths --- */
 const BLOB_PATH =
-  'M 400 30 C 560 20, 720 100, 740 220 C 760 340, 680 460, 560 520 C 440 580, 280 560, 160 480 C 40 400, 20 260, 80 160 C 140 60, 240 40, 400 30 Z';
+  'M 300 45 C 410 35, 520 80, 545 170 C 570 260, 530 370, 440 430 C 350 490, 230 480, 150 400 C 70 320, 50 210, 100 130 C 150 50, 190 55, 300 45 Z';
 
 const BLOB_PATH_2 =
-  'M 420 40 C 580 10, 740 120, 720 240 C 700 360, 660 480, 540 530 C 420 580, 260 580, 140 500 C 20 420, 40 280, 100 170 C 160 60, 260 70, 420 40 Z';
+  'M 310 50 C 430 30, 530 100, 540 190 C 550 280, 510 380, 420 440 C 330 500, 210 490, 140 410 C 70 330, 60 220, 110 140 C 160 60, 200 70, 310 50 Z';
 
 const BLOB_PATH_3 =
-  'M 390 25 C 540 30, 700 90, 750 210 C 800 330, 700 470, 570 540 C 440 610, 300 570, 170 490 C 40 410, 10 270, 60 150 C 110 30, 240 20, 390 25 Z';
+  'M 290 40 C 400 45, 510 90, 550 180 C 590 270, 540 380, 450 440 C 360 500, 240 470, 155 395 C 70 320, 40 200, 90 120 C 140 40, 180 35, 290 40 Z';

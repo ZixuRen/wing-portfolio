@@ -1,52 +1,9 @@
 /* ==========================================================================
-   Digital Twin — Blob + Chat Interface
+   Digital Twin — Overlay + Blob + Controls
    ========================================================================== */
 
-.dt {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.8s ease;
-}
-
-.dt--active {
-  background-color: var(--color-cream);
-}
-
-/* --- Blob --- */
-.dt__blob-wrap {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-}
-
-.dt__blob-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.dt__blob-path {
-  transition: d 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Gentle floating motion when active */
-.dt--active .dt__blob-wrap {
-  animation: blob-float 6s ease-in-out infinite;
-}
-
-@keyframes blob-float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(8px, -6px) scale(1.01); }
-  66% { transform: translate(-6px, 4px) scale(0.99); }
-}
-
-/* --- CTA Button --- */
-.dt__cta {
+/* --- CTA Button (idle state, inside yellow zone) --- */
+.dt-cta {
   position: relative;
   z-index: 2;
   font-family: var(--font-sans);
@@ -62,104 +19,162 @@
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.dt__cta:hover {
+.dt-cta:hover {
   background-color: var(--color-black);
   color: var(--color-yellow);
 }
 
-/* --- Chat Interface --- */
-.dt__chat {
-  position: relative;
-  z-index: 2;
+/* --- Full-screen overlay --- */
+.dt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 480px;
-  height: 100%;
-  max-height: 400px;
-  padding: var(--space-md);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.dt__close {
+/* Phase 1: expanding — yellow rises from bottom to fill screen */
+.dt-overlay--expanding {
+  background-color: var(--color-yellow);
+  animation: overlay-rise 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes overlay-rise {
+  from {
+    clip-path: inset(50% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Phase 2: morphing — full yellow, blob fading in over it */
+.dt-overlay--morphing {
+  background-color: var(--color-yellow);
+  animation: overlay-to-cream 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes overlay-to-cream {
+  0% {
+    background-color: var(--color-yellow);
+  }
+  100% {
+    background-color: var(--color-cream);
+  }
+}
+
+/* Phase 3: active — cream background, blob floats */
+.dt-overlay--active {
+  background-color: var(--color-cream);
+}
+
+/* --- Organic divider line (travels with yellow) --- */
+.dt-overlay__line {
   position: absolute;
   top: 0;
-  right: 0;
-  z-index: 3;
-  background: none;
-  border: none;
-  font-size: var(--text-xl);
-  color: var(--color-black);
-  cursor: pointer;
-  padding: var(--space-xs) var(--space-sm);
-  opacity: 0.5;
-  transition: opacity 0.2s;
-}
-
-.dt__close:hover {
-  opacity: 1;
-}
-
-/* --- Messages --- */
-.dt__messages {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding-bottom: var(--space-md);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(23, 24, 19, 0.15) transparent;
-}
-
-.dt__msg {
-  max-width: 85%;
-  animation: msg-in 0.3s ease-out;
-}
-
-.dt__msg--assistant {
-  align-self: flex-start;
-}
-
-.dt__msg--user {
-  align-self: flex-end;
-}
-
-.dt__msg-label {
-  display: block;
-  font-family: var(--font-sans);
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-black);
+  left: 0;
+  width: 100%;
+  height: 60px;
+  z-index: 2;
   opacity: 0.4;
-  margin-bottom: var(--space-xs);
 }
 
-.dt__msg p {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--color-black);
+.dt-overlay--expanding .dt-overlay__line {
+  animation: line-rise 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.dt__msg--user p {
-  background-color: var(--color-black);
-  color: var(--color-cream);
-  padding: 0.5rem 0.875rem;
-  border-radius: 1rem 1rem 0.25rem 1rem;
+@keyframes line-rise {
+  from {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 0;
+  }
 }
 
-.dt__msg--assistant p {
-  background-color: rgba(23, 24, 19, 0.06);
-  padding: 0.5rem 0.875rem;
-  border-radius: 1rem 1rem 1rem 0.25rem;
+.dt-overlay--morphing .dt-overlay__line,
+.dt-overlay--active .dt-overlay__line {
+  opacity: 0;
 }
 
-@keyframes msg-in {
+/* --- Yellow fill / blob --- */
+.dt-overlay__yellow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dt-overlay--expanding .dt-overlay__yellow {
+  /* Full yellow background, no blob yet */
+  display: none;
+}
+
+.dt-overlay--morphing .dt-overlay__yellow,
+.dt-overlay--active .dt-overlay__yellow {
+  width: 55vmin;
+  height: 55vmin;
+}
+
+/* --- Blob SVG --- */
+.dt-overlay__blob {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.dt-overlay--morphing .dt-overlay__blob {
+  animation: blob-appear 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes blob-appear {
+  0% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dt-overlay--active .dt-overlay__blob {
+  opacity: 1;
+  animation: blob-float 6s ease-in-out infinite;
+}
+
+@keyframes blob-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(8px, -12px) scale(1.02);
+  }
+  66% {
+    transform: translate(-6px, 8px) scale(0.98);
+  }
+}
+
+/* --- Controls --- */
+.dt-controls {
+  position: absolute;
+  bottom: 12vh;
+  z-index: 3;
+  display: flex;
+  gap: var(--space-lg);
+  animation: controls-in 0.5s ease-out forwards;
+}
+
+@keyframes controls-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -167,55 +182,53 @@
   }
 }
 
-/* --- Input --- */
-.dt__input-wrap {
-  display: flex;
-  gap: var(--space-sm);
-  border-top: 1px solid rgba(23, 24, 19, 0.1);
-  padding-top: var(--space-md);
-}
-
-.dt__input {
-  flex: 1;
+.dt-controls__btn {
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--color-black);
-  border-radius: 0;
-  background: transparent;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.dt__input::placeholder {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
   color: var(--color-black);
-  opacity: 0.35;
-}
-
-.dt__input:focus {
-  border-color: var(--color-black);
-  box-shadow: 0 0 0 1px var(--color-black);
-}
-
-.dt__send {
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  background: var(--color-black);
-  color: var(--color-cream);
+  background: transparent;
   border: 1px solid var(--color-black);
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 2rem;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.dt__send:hover {
-  opacity: 0.8;
+.dt-controls__btn:hover {
+  background-color: var(--color-black);
+  color: var(--color-cream);
+}
+
+.dt-controls__btn--active {
+  background-color: var(--color-black);
+  color: var(--color-cream);
+}
+
+.dt-controls__btn--end {
+  border-color: var(--color-black);
+}
+
+.dt-controls__btn--end:hover {
+  background-color: var(--color-black);
+  color: var(--color-cream);
 }
 
 /* --- Responsive --- */
 @media (max-width: 768px) {
-  .dt__chat {
-    max-width: 100%;
-    padding: var(--space-sm);
+  .dt-overlay--morphing .dt-overlay__yellow,
+  .dt-overlay--active .dt-overlay__yellow {
+    width: 70vmin;
+    height: 70vmin;
+  }
+
+  .dt-controls {
+    bottom: 8vh;
+    gap: var(--space-md);
+  }
+
+  .dt-controls__btn {
+    padding: 0.625rem 1.5rem;
   }
 }
