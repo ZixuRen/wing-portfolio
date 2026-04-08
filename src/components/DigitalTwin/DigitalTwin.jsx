@@ -1,17 +1,29 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import './DigitalTwin.css';
 
 /*
   Animation phases:
   0 "idle"      — static yellow bottom half, button visible
   1 "expanding" — yellow wave rises to cover full viewport (~1.6s)
-  2 "morphing"  — full-screen yellow shrinks into blob (~1.2s)
-  3 "active"    — blob breathes/floats, controls visible
+  2 "morphing"  — full-screen yellow shrinks to blob (~1.8s)
+  3 "active"    — blob morphs through shapes, controls visible
 */
 
 export default function DigitalTwin() {
   const [phase, setPhase] = useState(0);
   const [muted, setMuted] = useState(false);
+  const [shapeIndex, setShapeIndex] = useState(0);
+  const morphCooldown = useRef(false);
+
+  const shapeKeys = ['blob', 'lemon', 'bulb', 'lemonTilt', 'drop', 'lemonLow', 'lemonVert'];
+  const currentShape = SHAPES[shapeKeys[shapeIndex]];
+
+  function handleMouseEnter() {
+    if (phase !== 3 || morphCooldown.current) return;
+    morphCooldown.current = true;
+    setShapeIndex((i) => (i + 1) % shapeKeys.length);
+    setTimeout(() => { morphCooldown.current = false; }, 1800);
+  }
 
   function handleActivate() {
     setPhase(1);
@@ -23,7 +35,7 @@ export default function DigitalTwin() {
       return () => clearTimeout(t);
     }
     if (phase === 2) {
-      const t = setTimeout(() => setPhase(3), 1200);
+      const t = setTimeout(() => setPhase(3), 1800);
       return () => clearTimeout(t);
     }
   }, [phase]);
@@ -31,18 +43,17 @@ export default function DigitalTwin() {
   const handleEndCall = useCallback(() => {
     setPhase(0);
     setMuted(false);
+    setShapeIndex(0);
   }, []);
 
   return (
     <>
-      {/* CTA button — only in idle state */}
       {phase === 0 && (
         <button class="dt-cta" type="button" onClick={handleActivate}>
           talk to my digital twin
         </button>
       )}
 
-      {/* Full-screen overlay for animation phases 1-3 */}
       {phase > 0 && (
         <div
           class={[
@@ -54,83 +65,80 @@ export default function DigitalTwin() {
             .filter(Boolean)
             .join(' ')}
         >
-          {/* Wavy top edge + hand-drawn line — rides on top of yellow */}
-          <div class="dt-overlay__wave-top">
-            {/* Wave shape that forms the organic top edge of the yellow area */}
-            <svg
-              class="dt-overlay__wave-svg"
-              viewBox="0 0 1440 120"
-              preserveAspectRatio="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Yellow wave fill — the organic top edge */}
-              <path fill="#ECE543">
-                <animate
-                  attributeName="d"
-                  values="
-                    M0,80 C120,95 240,40 400,60 C560,80 680,30 840,55 C1000,80 1160,35 1300,50 C1380,58 1420,65 1440,60 L1440,120 L0,120 Z;
-                    M0,60 C160,30 320,85 480,55 C640,25 800,75 960,50 C1120,25 1280,70 1380,55 C1420,48 1440,52 1440,55 L1440,120 L0,120 Z;
-                    M0,70 C140,50 280,90 440,65 C600,40 760,80 920,58 C1080,36 1240,72 1360,55 C1410,48 1440,58 1440,55 L1440,120 L0,120 Z;
-                    M0,80 C120,95 240,40 400,60 C560,80 680,30 840,55 C1000,80 1160,35 1300,50 C1380,58 1420,65 1440,60 L1440,120 L0,120 Z
-                  "
-                  dur="5s"
-                  repeatCount="indefinite"
-                  calcMode="spline"
-                  keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
-                />
-              </path>
-              {/* Hand-drawn line overlaid on the wave */}
-              <path
-                fill="none"
-                stroke="var(--color-black)"
-                stroke-width="1.2"
-                opacity="0.6"
-              >
-                <animate
-                  attributeName="d"
-                  values="
-                    M0,78 C100,92 220,38 380,58 C540,78 700,28 860,52 C1020,76 1180,32 1320,48 C1400,56 1440,62 1440,58;
-                    M0,58 C140,28 300,82 460,52 C620,22 780,72 940,48 C1100,24 1260,68 1360,52 C1420,45 1440,50 1440,53;
-                    M0,68 C120,48 260,88 420,62 C580,38 740,78 900,55 C1060,34 1220,70 1340,52 C1400,45 1440,56 1440,53;
-                    M0,78 C100,92 220,38 380,58 C540,78 700,28 860,52 C1020,76 1180,32 1320,48 C1400,56 1440,62 1440,58
-                  "
-                  dur="5s"
-                  repeatCount="indefinite"
-                  calcMode="spline"
-                  keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
-                />
-              </path>
-            </svg>
-          </div>
-
-          {/* Solid yellow body below the wave */}
-          <div class="dt-overlay__body" />
-
-          {/* Blob — appears in phase 2-3 */}
-          {(phase === 2 || phase === 3) && (
-            <div class="dt-overlay__blob-wrap">
+          {/* Rising container — wave + yellow body move as one */}
+          <div class="dt-overlay__rising">
+            <div class="dt-overlay__wave-top">
               <svg
-                class="dt-overlay__blob"
-                viewBox="0 0 600 600"
+                class="dt-overlay__wave-svg"
+                viewBox="0 0 1440 120"
+                preserveAspectRatio="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <path fill="#ECE543" d={BLOB_PATH}>
-                  {phase === 3 && (
-                    <animate
-                      attributeName="d"
-                      values={`${BLOB_PATH};${BLOB_PATH_2};${BLOB_PATH_3};${BLOB_PATH}`}
-                      dur="8s"
-                      repeatCount="indefinite"
-                      calcMode="spline"
-                      keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
-                    />
-                  )}
+                <path fill="#ECE543">
+                  <animate
+                    attributeName="d"
+                    values="
+                      M0,80 C120,95 240,40 400,60 C560,80 680,30 840,55 C1000,80 1160,35 1300,50 C1380,58 1420,65 1440,60 L1440,120 L0,120 Z;
+                      M0,60 C160,30 320,85 480,55 C640,25 800,75 960,50 C1120,25 1280,70 1380,55 C1420,48 1440,52 1440,55 L1440,120 L0,120 Z;
+                      M0,70 C140,50 280,90 440,65 C600,40 760,80 920,58 C1080,36 1240,72 1360,55 C1410,48 1440,58 1440,55 L1440,120 L0,120 Z;
+                      M0,80 C120,95 240,40 400,60 C560,80 680,30 840,55 C1000,80 1160,35 1300,50 C1380,58 1420,65 1440,60 L1440,120 L0,120 Z
+                    "
+                    dur="5s"
+                    repeatCount="indefinite"
+                    calcMode="spline"
+                    keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
+                  />
                 </path>
+                <path
+                  fill="none"
+                  stroke="var(--color-black)"
+                  stroke-width="1.2"
+                  opacity="0.6"
+                >
+                  <animate
+                    attributeName="d"
+                    values="
+                      M0,78 C100,92 220,38 380,58 C540,78 700,28 860,52 C1020,76 1180,32 1320,48 C1400,56 1440,62 1440,58;
+                      M0,58 C140,28 300,82 460,52 C620,22 780,72 940,48 C1100,24 1260,68 1360,52 C1420,45 1440,50 1440,53;
+                      M0,68 C120,48 260,88 420,62 C580,38 740,78 900,55 C1060,34 1220,70 1340,52 C1400,45 1440,56 1440,53;
+                      M0,78 C100,92 220,38 380,58 C540,78 700,28 860,52 C1020,76 1180,32 1320,48 C1400,56 1440,62 1440,58
+                    "
+                    dur="5s"
+                    repeatCount="indefinite"
+                    calcMode="spline"
+                    keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"
+                  />
+                </path>
+              </svg>
+            </div>
+            <div class="dt-overlay__body" />
+          </div>
+
+          {/* Clip-path shape — shrinks in phase 2, stays as base circle in phase 3 */}
+          {(phase === 2 || phase === 3) && (
+            <div class={`dt-overlay__shape ${phase === 3 ? 'dt-overlay__shape--hold' : ''}`} />
+          )}
+
+          {/* SVG blob — fades in during phase 2, mouse-triggered morph in phase 3 */}
+          {(phase === 2 || phase === 3) && (
+            <div
+              class={`dt-overlay__blob-wrap ${phase === 2 ? 'dt-overlay__blob-wrap--fadein' : ''}`}
+              onMouseEnter={handleMouseEnter}
+            >
+              <svg
+                class="dt-overlay__blob-svg"
+                viewBox="0 0 400 400"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  class="dt-overlay__blob-path"
+                  fill="#ECE543"
+                  style={{ d: `path('${currentShape}')` }}
+                />
               </svg>
             </div>
           )}
 
-          {/* Controls — only in active phase */}
           {phase === 3 && (
             <div class="dt-controls">
               <button
@@ -145,7 +153,7 @@ export default function DigitalTwin() {
                 type="button"
                 onClick={handleEndCall}
               >
-                end call
+                end
               </button>
             </div>
           )}
@@ -155,12 +163,37 @@ export default function DigitalTwin() {
   );
 }
 
-/* --- Blob paths --- */
-const BLOB_PATH =
-  'M 300 45 C 410 35, 520 80, 545 170 C 570 260, 530 370, 440 430 C 350 490, 230 480, 150 400 C 70 320, 50 210, 100 130 C 150 50, 190 55, 300 45 Z';
+/*
+  All 4 shapes use exactly 8 cubic bezier segments (M + 8C + Z)
+  so SMIL can interpolate smoothly between them.
+  ViewBox: 0 0 400 400, shapes centered ~(200, 200)
+*/
+const SHAPES = {
+  // Organic blob — soft irregular circle
+  blob:
+    'M 200,38 C 252,32 312,58 348,102 C 384,146 395,205 382,255 C 369,305 335,345 288,368 C 241,391 188,390 142,368 C 96,346 58,305 38,252 C 18,199 20,148 42,108 C 64,68 102,45 148,38 C 168,34 185,35 200,38 Z',
 
-const BLOB_PATH_2 =
-  'M 310 50 C 430 30, 530 100, 540 190 C 550 280, 510 380, 420 440 C 330 500, 210 490, 140 410 C 70 330, 60 220, 110 140 C 160 60, 200 70, 310 50 Z';
+  // Lemon — horizontal elongated, pointed both ends (right more pointed), organic asymmetry
+  lemon:
+    'M 200,72 C 258,42 332,38 382,82 C 432,126 445,195 425,248 C 405,301 358,335 302,352 C 252,366 205,362 158,342 C 111,322 68,288 38,240 C 8,192 -2,142 18,102 C 38,62 82,42 132,48 C 162,52 182,60 200,72 Z',
 
-const BLOB_PATH_3 =
-  'M 290 40 C 400 45, 510 90, 550 180 C 590 270, 540 380, 450 440 C 360 500, 240 470, 155 395 C 70 320, 40 200, 90 120 C 140 40, 180 35, 290 40 Z';
+  // Lightbulb — wide round top, narrowing to a neck at bottom
+  bulb:
+    'M 200,28 C 260,22 328,52 368,105 C 408,158 415,218 388,265 C 361,312 318,335 282,358 C 256,374 238,392 200,395 C 162,392 144,374 118,358 C 82,335 39,312 12,265 C -15,218 -8,158 32,105 C 72,52 140,22 200,28 Z',
+
+  // Raindrop — pointed top, wide round bottom
+  drop:
+    'M 200,18 C 218,18 252,62 282,122 C 312,182 348,238 362,285 C 376,332 368,372 335,392 C 302,412 252,418 200,418 C 148,418 98,412 65,392 C 32,372 24,332 38,285 C 52,238 88,182 118,122 C 148,62 182,18 200,18 Z',
+
+  // Lemon tilted ~45° upper-right
+  lemonTilt:
+    'M 200,52 C 248,28 312,22 362,62 C 412,102 435,168 418,232 C 401,296 352,342 295,365 C 238,388 182,382 132,352 C 82,322 42,272 22,215 C 2,158 12,98 52,62 C 92,26 142,28 172,38 C 185,42 192,46 200,52 Z',
+
+  // Lemon tilted ~-30° lower-right
+  lemonLow:
+    'M 200,58 C 255,38 318,48 365,95 C 412,142 428,208 408,268 C 388,328 338,365 278,378 C 218,391 162,378 118,345 C 74,312 38,262 22,205 C 6,148 18,92 55,58 C 92,24 138,22 168,32 C 182,38 192,48 200,58 Z',
+
+  // Lemon vertical — tall and narrow
+  lemonVert:
+    'M 200,15 C 232,18 268,42 292,88 C 316,134 328,195 322,252 C 316,309 295,358 262,385 C 229,412 202,418 178,402 C 154,386 132,348 115,298 C 98,248 88,188 92,135 C 96,82 115,42 148,22 C 168,12 182,12 200,15 Z',
+};

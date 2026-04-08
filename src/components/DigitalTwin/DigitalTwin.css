@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Digital Twin — Wave Rise + Blob + Controls
+   Digital Twin — Wave Rise + Clip-path Blob + Controls
    ========================================================================== */
 
-/* --- CTA Button (idle state) --- */
+/* --- CTA Button --- */
 .dt-cta {
   position: relative;
   z-index: 2;
@@ -37,19 +37,29 @@
 .dt-overlay--morphing,
 .dt-overlay--active {
   pointer-events: auto;
+  background-color: var(--color-cream);
 }
 
 /* ===========================
-   WAVE TOP EDGE
-   The wavy SVG + hand-drawn line that forms the organic top border.
-   This whole piece slides up with the yellow body.
+   RISING CONTAINER (Phase 1)
+   Wave + body move as one unit
    =========================== */
+.dt-overlay__rising {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
 .dt-overlay__wave-top {
   position: absolute;
   left: 0;
   right: 0;
+  top: 0;
   height: 120px;
   z-index: 3;
+  transform: translateY(-100%);
 }
 
 .dt-overlay__wave-svg {
@@ -58,138 +68,103 @@
   display: block;
 }
 
-/* ===========================
-   YELLOW BODY
-   Solid yellow rectangle that fills everything below the wave.
-   =========================== */
 .dt-overlay__body {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--color-yellow);
-  z-index: 2;
-}
-
-/* --- Phase 1: EXPANDING — wave + body rise from bottom --- */
-.dt-overlay--expanding .dt-overlay__wave-top {
-  bottom: 0;
-  animation: wave-rise 1.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-}
-
-.dt-overlay--expanding .dt-overlay__body {
-  height: 0;
-  animation: body-rise 1.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-}
-
-@keyframes wave-rise {
-  0% {
-    bottom: -120px;
-  }
-  100% {
-    bottom: calc(100% - 60px);
-  }
-}
-
-@keyframes body-rise {
-  0% {
-    height: 0;
-  }
-  100% {
-    height: 100%;
-  }
-}
-
-/* --- Phase 2: MORPHING — yellow fades to cream, blob appears --- */
-.dt-overlay--morphing .dt-overlay__wave-top {
-  bottom: calc(100% - 60px);
-  animation: wave-fade 0.8s ease-out forwards;
-}
-
-.dt-overlay--morphing .dt-overlay__body {
+  width: 100%;
   height: 100%;
-  animation: body-to-cream 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background-color: var(--color-yellow);
 }
 
-@keyframes wave-fade {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+/* Phase 1: rise from mid-screen */
+.dt-overlay--expanding .dt-overlay__rising {
+  height: 50%;
+  animation: container-rise 1.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 
-@keyframes body-to-cream {
-  0% {
-    background-color: var(--color-yellow);
-  }
-  100% {
-    background-color: var(--color-cream);
-  }
+@keyframes container-rise {
+  from { height: 50%; }
+  to   { height: 100%; }
 }
 
-/* --- Phase 3: ACTIVE — cream bg, blob floats --- */
-.dt-overlay--active .dt-overlay__wave-top {
+/* Phase 2+: rising container hidden, SVG blob takes over */
+.dt-overlay--morphing .dt-overlay__rising,
+.dt-overlay--active .dt-overlay__rising {
   display: none;
 }
 
-.dt-overlay--active .dt-overlay__body {
-  height: 100%;
-  background-color: var(--color-cream);
+/* ===========================
+   CLIP-PATH SHAPE (Phase 2 only)
+   Smooth circle shrink from full-screen.
+   =========================== */
+.dt-overlay__shape {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background-color: var(--color-yellow);
+  animation: shape-morph 1.8s cubic-bezier(0.4, 0, 0.15, 1) forwards;
+}
+
+@keyframes shape-morph {
+  0%   { clip-path: circle(75% at 50% 50%); }
+  100% { clip-path: circle(19vmin at 50% 44%); }
+}
+
+/* Phase 3: clip-path stays as base circle underneath SVG blob */
+.dt-overlay__shape--hold {
+  clip-path: circle(19vmin at 50% 44%);
 }
 
 /* ===========================
-   BLOB
+   SVG BLOB (Phase 2 fade-in + Phase 3 morph)
+   Fades in at end of phase 2 so phase 3 transition is seamless.
    =========================== */
 .dt-overlay__blob-wrap {
   position: absolute;
-  z-index: 4;
-  top: 50%;
+  z-index: 3;
+  top: 44%;
   left: 50%;
-  width: 55vmin;
-  height: 55vmin;
+  width: 42vmin;
+  height: 42vmin;
   transform: translate(-50%, -55%);
 }
 
-.dt-overlay__blob {
+.dt-overlay__blob-svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
-/* Morphing: blob scales down from huge to normal */
-.dt-overlay--morphing .dt-overlay__blob-wrap {
-  animation: blob-appear 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.dt-overlay__blob-path {
+  transition: d 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes blob-appear {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -55%) scale(2.5);
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -55%) scale(1);
-  }
+/* Phase 2: blob fades in with delay — appears under clip-path circle at end */
+.dt-overlay__blob-wrap--fadein {
+  opacity: 0;
+  animation: blob-fadein 0.6s ease-out 1.2s forwards;
 }
 
-/* Active: blob floats gently */
+@keyframes blob-fadein {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Phase 3: gentle floating */
 .dt-overlay--active .dt-overlay__blob-wrap {
-  animation: blob-float 6s ease-in-out infinite;
+  animation: blob-float 7s ease-in-out infinite;
 }
 
 @keyframes blob-float {
   0%, 100% {
-    transform: translate(-50%, -55%) scale(1);
+    transform: translate(-50%, -55%) scale(1) rotate(0deg);
   }
-  33% {
-    transform: translate(calc(-50% + 8px), calc(-55% - 12px)) scale(1.02);
+  25% {
+    transform: translate(calc(-50% + 6px), calc(-55% - 10px)) scale(1.02) rotate(1deg);
   }
-  66% {
-    transform: translate(calc(-50% - 6px), calc(-55% + 8px)) scale(0.98);
+  50% {
+    transform: translate(calc(-50% - 4px), calc(-55% + 6px)) scale(0.98) rotate(-1deg);
+  }
+  75% {
+    transform: translate(calc(-50% + 3px), calc(-55% - 4px)) scale(1.01) rotate(0.5deg);
   }
 }
 
@@ -198,7 +173,9 @@
    =========================== */
 .dt-controls {
   position: absolute;
-  bottom: 12vh;
+  top: calc(44% + 20vmin + 40px);
+  left: calc(50% - 108px);
+  transform: translateX(-50%);
   z-index: 5;
   display: flex;
   gap: var(--space-lg);
@@ -247,11 +224,6 @@
 
 /* --- Responsive --- */
 @media (max-width: 768px) {
-  .dt-overlay__blob-wrap {
-    width: 70vmin;
-    height: 70vmin;
-  }
-
   .dt-controls {
     bottom: 8vh;
     gap: var(--space-md);
