@@ -1,24 +1,8 @@
 ---
-import '../styles/global.css';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Wing Ren — AI Product Designer</title>
-	</head>
-	<body>
-		<h1>Designing how <em>people</em> connect with <em>AI</em></h1>
-		<p>AI Product Designer / Interaction Designer</p>
-
-		<h2>Typography Preview</h2>
-		<h3>Serif Display Heading</h3>
-		<h4>Smaller Serif Heading</h4>
-		<p>Body text in DM Sans — clean, readable, minimal.</p>
-		<p><small>SMALL LABEL — NAVIGATION — TAGS</small></p>
-	</body>
-</html>
+<BaseLayout>
+  <Hero />
+</BaseLayout>
