@@ -1,0 +1,58 @@
+---
+---
+
+<section class="about" id="about">
+  <span class="about__label">· about me ·</span>
+  <p class="about__text">
+    10+ years experience from China to Spain,<br />
+    from high-tech to handcraft, all chasing one question:<br />
+    <em>how do we make technology feel genuinely human?</em><br />
+    now in Elisava, turning wild ideas into real things<br />
+    — one prototype at a time.
+  </p>
+</section>
+
+<style>
+  .about {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--color-yellow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+  }
+
+  .about__label {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 600;
+    font-size: var(--text-xl);
+    color: var(--color-black);
+    text-align: center;
+    display: block;
+    margin-bottom: calc(var(--space-lg) + 40px);
+  }
+
+  .about__text {
+    font-family: var(--font-serif);
+    font-size: clamp(1.5rem, 2.8vw, 2.2rem);
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--color-black);
+    text-align: center;
+    max-width: 800px;
+  }
+
+  .about__text em {
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .about {
+      padding: var(--space-lg);
+    }
+  }
+</style>

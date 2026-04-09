@@ -105,12 +105,12 @@
 
 @keyframes shape-morph {
   0%   { clip-path: circle(75% at 50% 50%); }
-  100% { clip-path: circle(19vmin at 50% 44%); }
+  100% { clip-path: circle(19vmin at 50% calc(44% + 24px)); }
 }
 
 /* Phase 3: clip-path stays as base circle underneath SVG blob */
 .dt-overlay__shape--hold {
-  clip-path: circle(19vmin at 50% 44%);
+  clip-path: circle(19vmin at 50% calc(44% + 24px));
 }
 
 /* ===========================
@@ -120,7 +120,7 @@
 .dt-overlay__blob-wrap {
   position: absolute;
   z-index: 3;
-  top: 44%;
+  top: calc(44% + 24px);
   left: 50%;
   width: 42vmin;
   height: 42vmin;
@@ -154,18 +154,10 @@
 }
 
 @keyframes blob-float {
-  0%, 100% {
-    transform: translate(-50%, -55%) scale(1) rotate(0deg);
-  }
-  25% {
-    transform: translate(calc(-50% + 6px), calc(-55% - 10px)) scale(1.02) rotate(1deg);
-  }
-  50% {
-    transform: translate(calc(-50% - 4px), calc(-55% + 6px)) scale(0.98) rotate(-1deg);
-  }
-  75% {
-    transform: translate(calc(-50% + 3px), calc(-55% - 4px)) scale(1.01) rotate(0.5deg);
-  }
+  0%, 100% { transform: translate(-50%, -55%) scale(1) rotate(0deg); }
+  25% { transform: translate(calc(-50% + 6px), calc(-55% - 10px)) scale(1.02) rotate(1deg); }
+  50% { transform: translate(calc(-50% - 4px), calc(-55% + 6px)) scale(0.98) rotate(-1deg); }
+  75% { transform: translate(calc(-50% + 3px), calc(-55% - 4px)) scale(1.01) rotate(0.5deg); }
 }
 
 /* ===========================
@@ -173,7 +165,7 @@
    =========================== */
 .dt-controls {
   position: absolute;
-  top: calc(44% + 20vmin + 40px);
+  top: calc(44% + 20vmin + 40px + 24px);
   left: calc(50% - 108px);
   transform: translateX(-50%);
   z-index: 5;
@@ -227,7 +219,7 @@
    =========================== */
 .dt-status {
   position: absolute;
-  top: calc(44% + 24vmin);
+  top: calc(44% - 26vmin - 40px + 24px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
@@ -248,7 +240,7 @@
 
 .dt-listening-indicator {
   position: absolute;
-  top: calc(44% - 1vmin);
+  top: calc(44% - 1vmin + 24px);
   left: calc(50% - 1vmin);
   width: 2vmin;
   height: 2vmin;
@@ -267,6 +259,76 @@
     transform: scale(1.4);
     opacity: 0.2;
   }
+}
+
+/* ===========================
+   PROJECT LIST
+   =========================== */
+.dt-projects {
+  position: absolute;
+  right: calc(var(--space-xl) + 104px);
+  top: calc(50% - 128px);
+  transform: translateY(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-md);
+  animation: controls-in 0.8s ease-out forwards;
+}
+
+.dt-projects__item {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-black);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  transition: color 0.3s ease, transform 0.3s ease;
+  transform-origin: left center;
+}
+
+.dt-projects__item:hover {
+  color: var(--color-yellow);
+  transform: scale(1.15);
+}
+
+/* ===========================
+   DISCLAIMER
+   =========================== */
+.dt-disclaimer {
+  position: absolute;
+  left: var(--space-xl);
+  top: calc(50% - 80px - 16px);
+  transform: translateY(-50%);
+  z-index: 5;
+  max-width: 480px;
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--color-black);
+  opacity: 0.7;
+  white-space: pre-line;
+  animation: controls-in 0.8s ease-out forwards;
+}
+
+.dt-emoji {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: middle;
+  margin-left: 0.1em;
+}
+
+.dt-disclaimer em {
+  font-style: italic;
+  font-weight: 600;
 }
 
 /* ===========================

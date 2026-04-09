@@ -26,6 +26,16 @@ export default function DigitalTwin() {
   const shapeKeys = ['blob', 'lemon', 'cat', 'bulb', 'lemonTilt', 'drop', 'lemonLow', 'lemonVert'];
   const currentShape = SHAPES[shapeKeys[shapeIndex]];
 
+  const projectCooldown = useRef(false);
+
+  function handleProjectHover(project) {
+    if (voiceState !== 'idle' || projectCooldown.current) return;
+    projectCooldown.current = true;
+    setTimeout(() => { projectCooldown.current = false; }, 8000);
+
+    handleSendText(`Briefly introduce my project "${project.name}" in 1-2 sentences: ${project.desc}`);
+  }
+
   function morphNext() {
     if (morphCooldown.current) return;
     morphCooldown.current = true;
@@ -306,6 +316,43 @@ export default function DigitalTwin() {
           )}
 
 
+          {/* Project list */}
+          {phase === 3 && (
+            <nav class="dt-projects">
+              {PROJECTS.map((p) => (
+                <button
+                  key={p.id}
+                  class="dt-projects__item"
+                  type="button"
+                  onClick={() => handleProjectHover(p)}
+                >
+                  / {p.name}
+                </button>
+              ))}
+            </nav>
+          )}
+
+          {phase === 3 && (
+            <p class="dt-disclaimer">
+              Each reply{'\n'}
+              <em>burns</em> my credits,{'\n'}
+              either keep it short,{'\n'}
+              or just <em>hire me</em>.{' '}
+              <svg class="dt-emoji" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" fill="#ECE543" />
+                <circle cx="14" cy="16" r="2.5" fill="#171813" />
+                <circle cx="26" cy="16" r="2.5" fill="#171813" />
+                <defs>
+                  <clipPath id="tongue-clip">
+                    <path d="M14,25 Q20,30 26,25 L26,40 L14,40 Z" />
+                  </clipPath>
+                </defs>
+                <ellipse cx="20" cy="29" rx="3.5" ry="4" fill="#e07070" clip-path="url(#tongue-clip)" />
+                <path d="M14,25 Q20,30 26,25" fill="none" stroke="#171813" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </p>
+          )}
+
           {phase === 3 && (
             <div class="dt-controls">
               <button
@@ -329,6 +376,16 @@ export default function DigitalTwin() {
     </>
   );
 }
+
+const PROJECTS = [
+  { id: 'aimo', name: 'AIMO', desc: 'AI companion for elderly wellness' },
+  { id: 'unlovable', name: 'UNLOVABLE', desc: 'AI emotional support for breakups' },
+  { id: 'samsung-caf', name: 'SAMSUNG CAF', desc: 'Wearable interaction for sports' },
+  { id: 'samsung-airn', name: 'SAMSUNG AIR-N', desc: 'Smart home air purification system' },
+  { id: 'i-tattoo', name: 'I-TATTOO', desc: "China's first tattoo art space ecosystem" },
+  { id: 'basao', name: 'BASAO', desc: 'Tea experience & retail space design' },
+  { id: 'cocreatail', name: 'COCREATAIL', desc: 'DIY cocktail kit brand & product' },
+];
 
 const SHAPES = {
   blob:

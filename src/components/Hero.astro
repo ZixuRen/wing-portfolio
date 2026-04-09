@@ -8,8 +8,8 @@ import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
     <nav class="hero__nav">
       <a href="/" class="hero__nav-name">Wing Ren</a>
       <div class="hero__nav-links">
-        <a href="#works">Works</a>
         <a href="#about">About</a>
+        <a href="#works">Works</a>
         <a href="#contact">Contact</a>
       </div>
     </nav>
@@ -22,7 +22,7 @@ import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
       <em>people</em> connect<br />
       with <em>AI</em>
     </h1>
-    <p class="hero__subtitle">AI Product Designer / Interaction Designer / Design Engineer</p>
+    <p class="hero__subtitle">AI Product Designer / Creative Technologist / Interaction Designer</p>
   </div>
 
   <!-- Organic divider line (SVG) -->
@@ -36,17 +36,20 @@ import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
   <div class="hero__bottom">
     <DigitalTwin client:visible />
 
-    <footer class="hero__footer">
-      <div class="hero__footer-left">
-        <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        <a href="mailto:hello@wingren.com">Email</a>
-      </div>
-      <div class="hero__footer-right">
-        <span>Based in Spain</span>
-      </div>
-    </footer>
   </div>
 </section>
+
+<div class="hero__footer-sticky">
+  <footer class="hero__footer">
+    <div class="hero__footer-left">
+      <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      <a href="mailto:hello@wingren.com">Email</a>
+    </div>
+    <div class="hero__footer-right">
+      <a href="/Wing_Ren_CV.pdf" download>Download my CV</a>
+    </div>
+  </footer>
+</div>
 
 <style>
   .hero {
@@ -154,19 +157,24 @@ import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
     overflow: hidden;
   }
 
+  .hero__footer-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background-color: var(--color-yellow);
+    padding: var(--space-md) var(--space-xl);
+  }
+
   .hero__footer {
     width: 100%;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-top: auto;
+    align-items: center;
     font-family: var(--font-sans);
     font-size: var(--text-xs);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    position: relative;
-    z-index: 5;
   }
 
   .hero__footer-left {
@@ -178,8 +186,8 @@ import DigitalTwin from './DigitalTwin/DigitalTwin.jsx';
     opacity: 0.6;
   }
 
-  .hero__footer-right {
-    opacity: 0.7;
+  .hero__footer-right a:hover {
+    opacity: 0.6;
   }
 
   /* --- Responsive --- */
